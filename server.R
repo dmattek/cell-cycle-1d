@@ -13,7 +13,7 @@ library(shinyjs) #http://deanattali.com/shinyjs/
 library(data.table)
 
 # increase file upload limit
-options(shiny.maxRequestSize = 80 * 1024 ^ 2)
+options(shiny.maxRequestSize = 120 * 1024 ^ 2)
 
 shinyServer(function(input, output, session) {
   useShinyjs()
@@ -67,66 +67,100 @@ shinyServer(function(input, output, session) {
   })
   
   
-  # COLUMN SELECTION
-  output$varSelTrackLabel = renderUI({
-    cat(file = stderr(), 'UI varSelTrackLabel\n')
+  # UI FOR COLUMN SELECTION
+
+  # observer: sets chBcellID true if column names contain cellID
+  # here we check the rpesence of 'ObjectNumber' string in column names
+  observe({
     locCols = getDataNucCols()
-    locColSel = locCols[locCols %like% 'ObjectNumber'][1] # index 1 at the end in case more matches; select 1st
-    
-    selectInput(
-      'inSelTrackLabel',
-      'Select Track Label (e.g. objNuclei_ObjectNumber):',
-      locCols,
-      width = '100%',
-      selected = locColSel
-    )
+    updateCheckboxInput(session, "chBcellID", value = sum(locCols %like% 'ObjectNumber') > 0)
+  })
+
+  # observer: sets chBcellID true if column names contain grouping (e.g. treatment)  
+  # here we check the rpesence of 'Treat' string in column names
+  observe({
+    locCols = getDataNucCols()
+    updateCheckboxInput(session, "chBgroup", value = sum(locCols %like% 'Treat') > 0)
   })
   
+  output$uiChBcellIDunique = renderUI({
+    if(input$chBcellID) {
+      checkboxInput('chBtrackUni', 'Cell IDs unique across entire dataset', TRUE)
+    }
+  })
+  
+    output$varSelTrackLabel = renderUI({
+    cat(file = stderr(), 'UI varSelTrackLabel\n')
+      
+      if(input$chBcellID) {
+        locCols = getDataNucCols()
+        locColSel = locCols[locCols %like% 'ObjectNumber'][1] # index 1 at the end in case more matches; select 1st
+        
+        selectInput(
+          'inSelTrackLabel',
+          'Select Track Label (e.g. objNuclei_ObjectNumber):',
+          locCols,
+          width = '100%',
+          selected = locColSel
+        )
+        
+      }
+  })
+  
+
+    # This is to select FOV
+    # The value is used to create dataset-wide unique cell ids
+    # Cell ids should be uniwue within group selected here
+    output$varSelSite = renderUI({
+      cat(file = stderr(), 'UI varSelSite\n')
+      
+      if (input$chBcellID) {
+        if (!input$chBtrackUni) {
+          locCols = getDataNucCols()
+          locColSel = locCols[locCols %like% 'Site' | locCols %like% 'Series' ][1] # index 1 at the end in case more matches; select 1st
+          
+          selectInput(
+            'inSelSite',
+            'Select FOV (e.g. Metadata_Site or Metadata_Series):',
+            locCols,
+            width = '100%',
+            selected = locColSel
+          )
+        }
+        
+      }
+    })
+    
+    
+    
   # This is main field to select plot facet grouping
   # It's typically a column with the entire experimental description,
   # e.g. in Yannick's case it's Stim_All_Ch or Stim_All_S.
   # In Coralie's case it's a combination of 3 columns called Stimulation_...
   output$varSelGroup = renderUI({
     cat(file = stderr(), 'UI varSelGroup\n')
-    locCols = getDataNucCols()
     
-    if (!is.null(locCols)) {
-      locColSel = locCols[locCols %like% 'Treat']
-      if (length(locColSel) == 0)
-        locColSel = locCols[locCols %like% 'Conc'][1] # index 1 at the end in case more matches; select 1st
-      else if (length(locColSel) > 1) {
-        locColSel = locColSel[1]
-      }
-      #    cat('UI varSelGroup::locColSel ', locColSel, '\n')
-      selectInput(
-        'inSelGroup',
-        'Select one or more facet groupings (e.g. Metadata_Well, Metadata_TreatConc):',
-        locCols,
-        width = '100%',
-        selected = locColSel,
-        multiple = TRUE
-      )
-    }
-    
-  })
-  
-  # This is to select FOV
-  # The value is used to create dataset-wide unique cell ids
-  # Cell ids should be uniwue within group selected here
-  output$varSelSite = renderUI({
-    cat(file = stderr(), 'UI varSelSite\n')
-    
-    if (!input$chBtrackUni) {
-      locCols = getDataNucCols()
-      locColSel = locCols[locCols %like% 'Site' | locCols %like% 'Series' ][1] # index 1 at the end in case more matches; select 1st
+    if (input$chBgroup) {
       
-      selectInput(
-        'inSelSite',
-        'Select FOV (e.g. Metadata_Site or Metadata_Series):',
-        locCols,
-        width = '100%',
-        selected = locColSel
-      )
+      locCols = getDataNucCols()
+      
+      if (!is.null(locCols)) {
+        locColSel = locCols[locCols %like% 'Treat']
+        if (length(locColSel) == 0)
+          locColSel = locCols[locCols %like% 'Conc'][1] # index 1 at the end in case more matches; select 1st
+        else if (length(locColSel) > 1) {
+          locColSel = locColSel[1]
+        }
+        #    cat('UI varSelGroup::locColSel ', locColSel, '\n')
+        selectInput(
+          'inSelGroup',
+          'Select one or more facet groupings (e.g. Metadata_Well, Metadata_TreatConc):',
+          locCols,
+          width = '100%',
+          selected = locColSel,
+          multiple = TRUE
+        )
+      }
     }
   })
   
@@ -192,10 +226,10 @@ shinyServer(function(input, output, session) {
       
     }
   })
-
+  
   ####
   ## data processing
-
+  
   dataInBoth <- reactive({
     # Without direct references to inDataGen1,2 and inFileLoad, inDataGen2
     #    does not trigger running this reactive once inDataGen1 is used.
@@ -254,6 +288,14 @@ shinyServer(function(input, output, session) {
       return(colnames(loc.dt))
   })
   
+  
+  #############
+  ## NEXT: modify here to account for UI choices
+  ## In the simplest case one should be able to load a single-column dataset with measurement only
+  ## What's passed further to other modules is a dt with 3 columns: cellid, group, measurement
+  ## The 1st two columns should be created artificially if no choices are indicated in UI
+  
+  
   # return dt with an added column with dataset-wide unique object label
   # Typically, object lables are unique within 1 a single FOV
   dataMod <- reactive({
@@ -262,32 +304,40 @@ shinyServer(function(input, output, session) {
     
     if (is.null(loc.dt))
       return(NULL)
-
+    
     if (!input$chBtrackUni) {
       loc.types = lapply(loc.dt, class)
-      if (loc.types[[input$inSelTrackLabel]] %in% c('numeric', 'integer') &
-          loc.types[[input$inSelSite]] %in% c('numeric', 'integer'))
-      {
-        loc.dt[, trackObjectsLabelUni := paste(sprintf("%03d", get(input$inSelSite)),
-                                               sprintf("%04d", get(input$inSelTrackLabel)),
-                                               sep = "_")]
-      } else if (loc.types[[input$inSelTrackLabel]] %in% c('numeric', 'integer')) {
-        loc.dt[, trackObjectsLabelUni := paste(sprintf("%s", get(input$inSelSite)),
-                                               sprintf("%04d", get(input$inSelTrackLabel)),
-                                               sep = "_")]
-      } else if (loc.types[[input$inSelSite]] %in% c('numeric', 'integer')) {
-        loc.dt[, trackObjectsLabelUni := paste(sprintf("%03d", get(input$inSelSite)),
-                                               sprintf("%s", get(input$inSelTrackLabel)),
-                                               sep = "_")]
-      } else {
-        loc.dt[, trackObjectsLabelUni := paste(sprintf("%s", get(input$inSelSite)),
-                                               sprintf("%s", get(input$inSelTrackLabel)),
-                                               sep = "_")]
+
+      # Make sure that UI fields that are checked further down aren't empty
+      if(!(input$inSelTrackLabel == "") & !(input$inSelSite == "")) {
+        if (loc.types[[input$inSelTrackLabel]] %in% c('numeric', 'integer') &
+            loc.types[[input$inSelSite]] %in% c('numeric', 'integer'))
+        {
+          loc.dt[, trackObjectsLabelUni := paste(sprintf("%03d", get(input$inSelSite)),
+                                                 sprintf("%04d", get(input$inSelTrackLabel)),
+                                                 sep = "_")]
+        } else {
+          if (loc.types[[input$inSelTrackLabel]] %in% c('numeric', 'integer')) {
+            loc.dt[, trackObjectsLabelUni := paste(sprintf("%s", get(input$inSelSite)),
+                                                   sprintf("%04d", get(input$inSelTrackLabel)),
+                                                   sep = "_")] 
+          } else {
+            if (loc.types[[input$inSelSite]] %in% c('numeric', 'integer')) {
+              loc.dt[, trackObjectsLabelUni := paste(sprintf("%03d", get(input$inSelSite)),
+                                                     sprintf("%s", get(input$inSelTrackLabel)),
+                                                     sep = "_")]
+            } else {
+              loc.dt[, trackObjectsLabelUni := paste(sprintf("%s", get(input$inSelSite)),
+                                                     sprintf("%s", get(input$inSelTrackLabel)),
+                                                     sep = "_")]
+            }
+          }
+        }
       }
-    } else {
+    } else
       loc.dt[, trackObjectsLabelUni := get(input$inSelTrackLabel)]
-    }
     
+
     return(loc.dt)
   })
   
@@ -325,6 +375,11 @@ shinyServer(function(input, output, session) {
       group = eval(parse(text = loc.s.gr))
     )]
     
+    # Reorder levels according to the output of unique.
+    # Once reordered, ggplot will plot correctly.
+    # This is to avoid having levels ordered as: '10 um', '100 um', '20 um'...
+    loc.out$group = factor(loc.out$group, unique(loc.out$group))
+    
     return(loc.out)
   })
   
@@ -344,8 +399,8 @@ shinyServer(function(input, output, session) {
     return(loc.dt)
     
   })
-    
-    
+  
+  
   
   callModule(tabHistPlot, 'myTabHistPlot', data4histPlotMod)
   callModule(tabFitModel, 'myTabFitModel', data4histPlotMod)

@@ -13,7 +13,7 @@ tabFitModelUI =  function(id, label = "Histogram") {
   
   tagList(
     h4(
-      "Histogram of entire dataset"
+      "Fit G1G2S0 model"
     ),
     fluidRow(
       column(

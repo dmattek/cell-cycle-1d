@@ -13,7 +13,7 @@ tabHistPlotUI =  function(id, label = "Histogram") {
   
   tagList(
     h4(
-      "Histogram of entire dataset"
+      "Manually set thresholds"
     ),
     fluidRow(
       column(

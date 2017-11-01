@@ -21,11 +21,17 @@ shinyUI(
                 actionButton('inDataGen1', 'Generate artificial dataset'),
                 
                 tags$hr(),
-                checkboxInput('chBtrackUni', 'Track Label unique across entire dataset', FALSE),
+                checkboxInput('chBcellID', 
+                              'Dataset contains cell IDs', 
+                              FALSE),
+                
+                uiOutput('uiChBtrackUni'),
+                uiOutput('uiChBcellIDunique'),
                 uiOutput('varSelSite'),
                 uiOutput('varSelTrackLabel'),
+
+                checkboxInput('chBgroup', 'Dataset contains grouping column (e.g. treatment, condition)', FALSE),                
                 uiOutput('varSelGroup'),
-                #uiOutput('varSelTime'),
                 uiOutput('varSelMeas1'),
                 radioButtons(
                   'inSelMath',
@@ -51,11 +57,11 @@ shinyUI(
               mainPanel(
                 tabsetPanel(
                 tabPanel(
-                  'Manual Thresholds',
+                  'Manual',
                   tabHistPlotUI('myTabHistPlot')
                 ),
                 tabPanel(
-                  'Fit G1G2S0 model',
+                  'Model',
                   tabFitModelUI('myTabFitModel')
                 )
               )
