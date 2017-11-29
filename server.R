@@ -68,71 +68,76 @@ shinyServer(function(input, output, session) {
   
   
   # UI FOR COLUMN SELECTION
-
+  
   # observer: sets chBcellID true if column names contain cellID
   # here we check the rpesence of 'ObjectNumber' string in column names
   observe({
     locCols = getDataNucCols()
-    updateCheckboxInput(session, "chBcellID", value = sum(locCols %like% 'ObjectNumber') > 0)
+    updateCheckboxInput(session,
+                        "chBcellID",
+                        value = sum(locCols %like% 'ObjectNumber') > 0)
   })
-
-  # observer: sets chBcellID true if column names contain grouping (e.g. treatment)  
-  # here we check the rpesence of 'Treat' string in column names
+  
+  # observer: sets chBcellID true if column names contain grouping (e.g. treatment)
+  # here we check the presence of 'Treat' string in column names
   observe({
     locCols = getDataNucCols()
     updateCheckboxInput(session, "chBgroup", value = sum(locCols %like% 'Treat') > 0)
   })
   
   output$uiChBcellIDunique = renderUI({
-    if(input$chBcellID) {
-      checkboxInput('chBtrackUni', 'Cell IDs unique across entire dataset', TRUE)
+    if (input$chBcellID) {
+      checkboxInput('chBtrackUni',
+                    'Cell IDs unique across entire dataset',
+                    TRUE)
     }
   })
   
-    output$varSelTrackLabel = renderUI({
+  output$varSelTrackLabel = renderUI({
     cat(file = stderr(), 'UI varSelTrackLabel\n')
+    
+    if (input$chBcellID) {
+      locCols = getDataNucCols()
+      locColSel = locCols[locCols %like% 'ObjectNumber'][1] # index 1 at the end in case more matches; select 1st
       
-      if(input$chBcellID) {
+      selectInput(
+        'inSelTrackLabel',
+        'Select Track Label (e.g. objNuclei_ObjectNumber):',
+        locCols,
+        width = '100%',
+        selected = locColSel
+      )
+      
+    }
+  })
+  
+  
+  # This is to select FOV
+  # The value is used to create dataset-wide unique cell ids
+  # Cell ids should be uniwue within group selected here
+  output$varSelSite = renderUI({
+    cat(file = stderr(), 'UI varSelSite\n')
+    
+    if (input$chBcellID) {
+      if (!input$chBtrackUni) {
         locCols = getDataNucCols()
-        locColSel = locCols[locCols %like% 'ObjectNumber'][1] # index 1 at the end in case more matches; select 1st
+        locColSel = locCols[locCols %like% 'Site' |
+                              locCols %like% 'Series'][1] # index 1 at the end in case more matches; select 1st
         
         selectInput(
-          'inSelTrackLabel',
-          'Select Track Label (e.g. objNuclei_ObjectNumber):',
+          'inSelSite',
+          'Select FOV (e.g. Metadata_Site or Metadata_Series):',
           locCols,
           width = '100%',
           selected = locColSel
         )
-        
       }
+      
+    }
   })
   
-
-    # This is to select FOV
-    # The value is used to create dataset-wide unique cell ids
-    # Cell ids should be uniwue within group selected here
-    output$varSelSite = renderUI({
-      cat(file = stderr(), 'UI varSelSite\n')
-      
-      if (input$chBcellID) {
-        if (!input$chBtrackUni) {
-          locCols = getDataNucCols()
-          locColSel = locCols[locCols %like% 'Site' | locCols %like% 'Series' ][1] # index 1 at the end in case more matches; select 1st
-          
-          selectInput(
-            'inSelSite',
-            'Select FOV (e.g. Metadata_Site or Metadata_Series):',
-            locCols,
-            width = '100%',
-            selected = locColSel
-          )
-        }
-        
-      }
-    })
-    
-    
-    
+  
+  
   # This is main field to select plot facet grouping
   # It's typically a column with the entire experimental description,
   # e.g. in Yannick's case it's Stim_All_Ch or Stim_All_S.
@@ -141,7 +146,6 @@ shinyServer(function(input, output, session) {
     cat(file = stderr(), 'UI varSelGroup\n')
     
     if (input$chBgroup) {
-      
       locCols = getDataNucCols()
       
       if (!is.null(locCols)) {
@@ -208,7 +212,7 @@ shinyServer(function(input, output, session) {
     if (input$chBmeasTrim) {
       loc.dt  = data4histPlot()
       
-      if(is.null(loc.dt))
+      if (is.null(loc.dt))
         return(NULL)
       
       locMeasMin = floor(min(loc.dt$y))
@@ -305,45 +309,49 @@ shinyServer(function(input, output, session) {
     if (is.null(loc.dt))
       return(NULL)
     
-    if (!input$chBtrackUni) {
-      loc.types = lapply(loc.dt, class)
-
-      # Make sure that UI fields that are checked further down aren't empty
-      if(!(input$inSelTrackLabel == "") & !(input$inSelSite == "")) {
-        if (loc.types[[input$inSelTrackLabel]] %in% c('numeric', 'integer') &
-            loc.types[[input$inSelSite]] %in% c('numeric', 'integer'))
-        {
-          loc.dt[, trackObjectsLabelUni := paste(sprintf("%03d", get(input$inSelSite)),
-                                                 sprintf("%04d", get(input$inSelTrackLabel)),
-                                                 sep = "_")]
-        } else {
-          if (loc.types[[input$inSelTrackLabel]] %in% c('numeric', 'integer')) {
-            loc.dt[, trackObjectsLabelUni := paste(sprintf("%s", get(input$inSelSite)),
+    if (input$chBcellID) {
+      if (input$chBtrackUni) {
+        loc.dt[, trackObjectsLabelUni := get(input$inSelTrackLabel)]
+      } else {
+        loc.types = lapply(loc.dt, class)
+        
+        # Make sure that UI fields that are checked further down aren't empty
+        if (!(input$inSelTrackLabel == "") &
+            !(input$inSelSite == "")) {
+          if (loc.types[[input$inSelTrackLabel]] %in% c('numeric', 'integer') &
+              loc.types[[input$inSelSite]] %in% c('numeric', 'integer'))
+          {
+            loc.dt[, trackObjectsLabelUni := paste(sprintf("%03d", get(input$inSelSite)),
                                                    sprintf("%04d", get(input$inSelTrackLabel)),
-                                                   sep = "_")] 
+                                                   sep = "_")]
           } else {
-            if (loc.types[[input$inSelSite]] %in% c('numeric', 'integer')) {
-              loc.dt[, trackObjectsLabelUni := paste(sprintf("%03d", get(input$inSelSite)),
-                                                     sprintf("%s", get(input$inSelTrackLabel)),
+            if (loc.types[[input$inSelTrackLabel]] %in% c('numeric', 'integer')) {
+              loc.dt[, trackObjectsLabelUni := paste(sprintf("%s", get(input$inSelSite)),
+                                                     sprintf("%04d", get(input$inSelTrackLabel)),
                                                      sep = "_")]
             } else {
-              loc.dt[, trackObjectsLabelUni := paste(sprintf("%s", get(input$inSelSite)),
-                                                     sprintf("%s", get(input$inSelTrackLabel)),
-                                                     sep = "_")]
+              if (loc.types[[input$inSelSite]] %in% c('numeric', 'integer')) {
+                loc.dt[, trackObjectsLabelUni := paste(sprintf("%03d", get(input$inSelSite)),
+                                                       sprintf("%s", get(input$inSelTrackLabel)),
+                                                       sep = "_")]
+              } else {
+                loc.dt[, trackObjectsLabelUni := paste(sprintf("%s", get(input$inSelSite)),
+                                                       sprintf("%s", get(input$inSelTrackLabel)),
+                                                       sep = "_")]
+              }
             }
           }
         }
-      }
-    } else
-      loc.dt[, trackObjectsLabelUni := get(input$inSelTrackLabel)]
+      } 
+    }
     
-
+    
     return(loc.dt)
   })
   
   
   # prepares a data table with 3 columns based on fields with column selection
-  # y - measurement value to analyse
+  # y - measurement value to analyse (that's the main necessary column)
   # id - dataset-wide unique cell id
   # group - grouping for facetting
   # This table DOES NOT affect any mods such as data trimming or outlier removal
@@ -354,6 +362,7 @@ shinyServer(function(input, output, session) {
     if (is.null(loc.dt))
       return(NULL)
     
+    # create expression for 'y' column based on measurements and math operations selected in UI
     if (input$inSelMath == '')
       loc.s.y = input$inSelMeas1
     else if (input$inSelMath == '1 / ')
@@ -361,19 +370,37 @@ shinyServer(function(input, output, session) {
     else
       loc.s.y = paste0(input$inSelMeas1, input$inSelMath, input$inSelMeas2)
     
-    # create expression for parsing
+    # create expression for 'group' column
     # creates a merged column based on other columns from input
     # used for grouping of plot facets
-    if (length(input$inSelGroup) == 0)
-      return(NULL)
-    loc.s.gr = sprintf("paste(%s, sep=';')",
-                       paste(input$inSelGroup, sep = '', collapse = ','))
+    if (input$chBgroup) {
+      if(length(input$inSelGroup) == 0)
+        return(NULL)
+      
+      loc.s.gr = sprintf("paste(%s, sep=';')",
+                         paste(input$inSelGroup, sep = '', collapse = ','))
+    } else {
+      # if no grouping required, fill 'group' column with 0
+      # because all the plotting relies on the presence of the group column
+      loc.s.gr = "paste('0')"
+    }
     
-    loc.out = loc.dt[, .(
-      y = eval(parse(text = loc.s.y)),
-      id = trackObjectsLabelUni,
-      group = eval(parse(text = loc.s.gr))
-    )]
+    
+    ## Build expression for selecting columns from loc.dt
+    # Core columns
+    s.colexpr = paste0('.(y = ', loc.s.y,
+                       ', group = ', loc.s.gr)
+    
+    # add data-wide unique trackID
+    if(input$chBcellID)
+      s.colexpr = paste0(s.colexpr, 
+                         ', id = trackObjectsLabelUni')
+    
+    # close bracket, finish the expression
+    s.colexpr = paste0(s.colexpr, ')')
+    
+    # create final dt for output based on columns selected above
+    loc.out = loc.dt[, eval(parse(text = s.colexpr))]
     
     # Reorder levels according to the output of unique.
     # Once reordered, ggplot will plot correctly.
@@ -394,7 +421,8 @@ shinyServer(function(input, output, session) {
       return(NULL)
     
     if (input$chBmeasTrim)
-      loc.dt = loc.dt[y >= input$slMeasTrim[1] & y <= input$slMeasTrim[2]]
+      loc.dt = loc.dt[y >= input$slMeasTrim[1] &
+                        y <= input$slMeasTrim[2]]
     
     return(loc.dt)
     
