@@ -26,7 +26,9 @@ tabHistPlotUI =  function(id, label = "Histogram") {
           max = 100,
           step = 1
         ),
-        uiOutput(ns('uiG1loc'))
+        uiOutput(ns('uiG1loc')),
+        downloadButton(ns('downCCdata'), 'Download data with CC assignment'),
+        br()
       ),
       column(
         4,
@@ -111,9 +113,6 @@ tabHistPlotUI =  function(id, label = "Histogram") {
 tabHistPlot = function(input, output, session, in.data) {
   
   
-  # Boxplot - download pdf
-  callModule(downPlot, "downPlot", 'histplot.pdf', plotHist, TRUE)
-  
   output$uiG1loc = renderUI({
     
     ns <- session$ns
@@ -137,17 +136,9 @@ tabHistPlot = function(input, output, session, in.data) {
     
   })
   
-  # Calculate count of cells within histogram thresholds set in UI
-  # The output is a dt ready for display with plotCCperc module:
-  #    group     cc ncells
-  # 1:     1     G1    949
-  # 2:     1   G2/M    718
-  # 3:     1      S    270
-  # 4:     1 sub-G1     63
-  # 5:     2   G2/M    698
-  # 6:     2     G1    946
-  getData4CCpercPlot = reactive({
-    cat(file = stderr(), 'tabFitModel: getData4CCperc\n')
+  # add a column named 'cc' with the asignement of cell cycle phase
+  getData4CC = reactive({
+    cat(file = stderr(), 'tabFitModel: getData4CC\n')
     
     loc.dt = in.data()
     
@@ -176,6 +167,25 @@ tabHistPlot = function(input, output, session, in.data) {
                        include.lowest = TRUE, 
                        ordered_result = TRUE,
                        labels = def.vs.cc)]
+    return(loc.dt)
+  })
+  
+  # Calculate count of cells within histogram thresholds set in UI
+  # The output is a dt ready for display with plotCCperc module:
+  #    group     cc ncells
+  # 1:     1     G1    949
+  # 2:     1   G2/M    718
+  # 3:     1      S    270
+  # 4:     1 sub-G1     63
+  # 5:     2   G2/M    698
+  # 6:     2     G1    946
+  getData4CCpercPlot = reactive({
+    cat(file = stderr(), 'tabFitModel: getData4CCpercPlot\n')
+    
+    loc.dt = getData4CC()
+    
+    if (is.null(loc.dt))
+      return(NULL)
     
     # count cells per cc phase for every group
     loc.dt.aggr = loc.dt[, .(count = .N), by = .(group, cc)]
@@ -216,6 +226,7 @@ tabHistPlot = function(input, output, session, in.data) {
     DT::dataTableOutput(ns('outTabCCperc'))
   })
   
+  
   output$outTabCCperc = DT::renderDataTable(server = FALSE, {
     cat(file = stderr(), 'tabFitModel: outTabCCperc\n')
     
@@ -241,7 +252,16 @@ tabHistPlot = function(input, output, session, in.data) {
                                     text = 'Download')))) %>% formatRound(2:6, 2)
   })
   
+  # download processed data with cc column containing cell cycle stage assignment
+  output$downCCdata <- downloadHandler(
+    filename = 'processedDataWithCC.csv',
+    content = function(file) {
+      write.csv(getData4CC(), file, row.names = FALSE)
+    }
+  )
   
+  # Histogram plot
+  # Used for static, interactive, and download
   plotHist <- function() {
     cat(file=stderr(), "plotHist\n")
     
@@ -270,7 +290,7 @@ tabHistPlot = function(input, output, session, in.data) {
     return(p.out)
   }
   
-  # display plot
+  # Display static histogram plot
   output$outPlot <- renderPlot({
     locBut = input$butGo
     
@@ -283,8 +303,7 @@ tabHistPlot = function(input, output, session, in.data) {
     plotHist()
   })
   
-  
-  
+  # Display interactive histogram plot
   output$outPlotInt <- renderPlotly({
     # This is required to avoid 
     # "Warning: Error in <Anonymous>: cannot open file 'Rplots.pdf'"
@@ -304,10 +323,7 @@ tabHistPlot = function(input, output, session, in.data) {
     
   })
   
-  # download pdf
-  callModule(downPlot, "downPlotHist", "histogram_manualThreshold.pdf", plotHist, TRUE)
-  
-  # Hierarchical - choose to display regular or interactive plot
+  # Choose to display regular or interactive plot
   output$uiPlot <- renderUI({
     ns <- session$ns
     if (input$plotInt)
@@ -316,9 +332,15 @@ tabHistPlot = function(input, output, session, in.data) {
       tagList(plotOutput(ns('outPlot'), height = paste0(input$inPlotHeight, "px")))
   })
   
+  
   ####
-  ## Plot barplot with cell cycle fractions
+  # Download pdf of histogram
+  callModule(downPlot, "downPlotHist", "histogram_manualThreshold.pdf", plotHist, TRUE)
+  
+  
+  # Plot barplot with cell cycle fractions
   callModule(plotCCperc, 'plotCCpercManual', 
              getData4CCpercPlot, in.fname = 'barplot_manualThreshold.pdf')
   
+
 }

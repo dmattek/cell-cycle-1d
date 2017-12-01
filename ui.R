@@ -49,9 +49,7 @@ shinyUI(
                 
                 tags$hr(),
                 checkboxInput('chBmeasTrim', 'Trim measurement', FALSE),
-                uiOutput('uiSlMeasTrim'),
-                
-                downloadButton('downloadDataClean', 'Download mod\'d data')
+                uiOutput('uiSlMeasTrim')
               ),
               
               mainPanel(

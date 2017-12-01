@@ -105,9 +105,6 @@ tabFitModelUI =  function(id, label = "Histogram") {
 tabFitModel = function(input, output, session, in.data) {
   
   
-  # download pdf
-  callModule(downPlot, "downPlot", 'histplot.pdf', plotHist, TRUE)
-  
   # Set location of G1 peak
   # The default value is set automatically based on 30% quantile
   output$uiG1loc = renderUI({
@@ -274,8 +271,10 @@ tabFitModel = function(input, output, session, in.data) {
                                     text = 'Download')))) %>% formatRound(2:4, 2)
   })
   
+
   ####
   ## Plot of histogram with fitted model
+  ## Used for static, interactive, and download
   plotHist <- function() {
     cat(file=stderr(), "tabFitModel: plotHist\n")
     
@@ -351,7 +350,7 @@ tabFitModel = function(input, output, session, in.data) {
   }
   
   
-  # display plot
+  # display static plot
   output$outPlot <- renderPlot({
     locBut = input$butGo
     
@@ -364,6 +363,7 @@ tabFitModel = function(input, output, session, in.data) {
     plotHist()
   })
   
+  # display interactive plot
   output$outPlotInt <- renderPlotly({
     # This is required to avoid 
     # "Warning: Error in <Anonymous>: cannot open file 'Rplots.pdf'"
@@ -383,10 +383,7 @@ tabFitModel = function(input, output, session, in.data) {
     
   })
   
-  # download pdf
-  callModule(downPlot, "downPlotHist", "histogram_fittedModel.pdf", plotHist, TRUE)
-  
-  # Choose to display regular or interactive plot
+  # Choose to display static or interactive plot
   output$uiPlot <- renderUI({
     ns <- session$ns
     if (input$plotInt)
@@ -395,8 +392,12 @@ tabFitModel = function(input, output, session, in.data) {
       tagList(plotOutput(ns('outPlot'), height = paste0(input$inPlotHeight, "px")))
   })
   
+
   
   ####
+  # Download pdf of histogram
+  callModule(downPlot, "downPlotHist", "histogram_fittedModel.pdf", plotHist, TRUE)
+  
   ## Plot barplot with cell cycle fractions
   callModule(plotCCperc, 'plotCCpercG1G2S0', 
              getData4CCpercPlot, in.fname = 'barplot_fittedModel.pdf')
