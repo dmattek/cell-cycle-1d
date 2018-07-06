@@ -42,7 +42,8 @@ shinyUI(
                     'Sum' = " + ",
                     'Multiply' = " * ",
                     'Subtract' = ' - ',
-                    '1 / X' = '1 / '
+                    '1 / X' = '1 / ',
+                    'log10' = 'log10'
                   )
                 ),
                 uiOutput('varSelMeas2'),

@@ -191,7 +191,7 @@ shinyServer(function(input, output, session) {
     locCols = getDataNucCols()
     
     if (!is.null(locCols) &&
-        !(input$inSelMath %in% c('', '1 / '))) {
+        !(input$inSelMath %in% c('', '1 / ', 'log10'))) {
       locColSel = locCols[locCols %like% 'objNuc_Intensity_MeanIntensity_imErkCor.*'][1] # index 1 at the end in case more matches; select 1st
       
       selectInput(
@@ -362,13 +362,23 @@ shinyServer(function(input, output, session) {
     if (is.null(loc.dt))
       return(NULL)
     
-    # create expression for 'y' column based on measurements and math operations selected in UI
+    
+    #create expression for 'y' column based on measurements and math operations selected in UI
     if (input$inSelMath == '')
       loc.s.y = input$inSelMeas1
     else if (input$inSelMath == '1 / ')
       loc.s.y = paste0(input$inSelMath, input$inSelMeas1)
+    else if (input$inSelMath == 'log10')
+      loc.s.y = paste0('1 + log10(', input$inSelMeas1, ')')
     else
       loc.s.y = paste0(input$inSelMeas1, input$inSelMath, input$inSelMeas2)
+    
+    # switch(input$inSelMath,
+    #        ''       = {loc.s.y = input$inSelMeas1},
+    #        '1 / '   = {loc.s.y = paste0(input$inSelMath, input$inSelMeas1)},
+    #        'log10'  = {loc.s.y = paste0('log10(', input$inSelMeas1, ')')},
+    #        {loc.s.y = paste0(input$inSelMeas1, input$inSelMath, input$inSelMeas2)}
+    # )
     
     # create expression for 'group' column
     # creates a merged column based on other columns from input
