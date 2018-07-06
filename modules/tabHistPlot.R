@@ -122,8 +122,8 @@ tabHistPlot = function(input, output, session, in.data) {
       return(NULL)
     
     locG1loc = round(quantile(loc.dt$y, 0.3))
-    locG1min = round(quantile(loc.dt$y, 0.05))
-    locG1max = round(quantile(loc.dt$y, 0.95))
+    locG1min = floor(quantile(loc.dt$y, 0.05))
+    locG1max = ceiling(quantile(loc.dt$y, 0.95))
     
     sliderInput(
       ns('slG1loc'),
