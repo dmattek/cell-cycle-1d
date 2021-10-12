@@ -14,7 +14,10 @@ shinyUI(
                 fileInput(
                   'inFileLoadNuc',
                   'Select data file (e.g. tCoursesSelected.csv) and press "Load Data"',
-                  accept = c('text/csv', 'text/comma-separated-values,text/plain')
+                  accept = c('text/csv', 
+                             'text/comma-separated-values,text/plain',
+                             'application/gzip', 
+                             'application/bz2')
                 ),
                 actionButton("inButLoadNuc", "Load Data"),
                 actionButton("butReset", "Reset file input"),
